@@ -68,7 +68,7 @@ private:
 void taotext(Font &VNfont, Text &text_ResetAll, Text &text_ClearBi, Text &text_Start,
              Text &text_Exit, Text &text_Back, Text &text_Next, Text &text_Pause, Text &text_Continue, Text &text1, Text &text2);
 
-void taotextthongbao(Font &VNfont, Text &text_Pause1, Text &text_Maxbi, Text &text_Complete);
+void taotextthongbao(Font &VNfont, Text &text_Pause1, Text &text_Maxbi, Text &text_Complete, Text &text_Trung_mau);
 
 void taobutton(HCN_Bo_Goc &Start, HCN_Bo_Goc &ClearBi, HCN_Bo_Goc &ResetAll,
                HCN_Bo_Goc &Exit, HCN_Bo_Goc &Back, HCN_Bo_Goc &Next, HCN_Bo_Goc &Pause, HCN_Bo_Goc &Continue);
@@ -160,7 +160,10 @@ int main()
     Text text_Pause1(VNfont);
     Text text_Maxbi(VNfont);
     Text text_Complete(VNfont);
-    taotextthongbao(VNfont, text_Pause1, text_Maxbi, text_Complete);
+    Text text_Trung_mau(VNfont);
+    bool hienThongBaoTrungMau = false;
+    Clock dongHoTrungMau;
+    taotextthongbao(VNfont, text_Pause1, text_Maxbi, text_Complete, text_Trung_mau);
 
     Text text_X(VNfont);
     text_X.setString("X");
@@ -198,7 +201,7 @@ int main()
     int cheDoAnimation = 0; // 0 = chưa chạy, 1 = đang chạy, 2 = tiến 1 bước, 3 = lùi 1 bước, 4 = hoàn thành
     int indexHanhDong = 0;  // Đang chạy tới bước swap thứ mấy
     float timeAccumulated = 0;
-    float speed = 350.f;
+    float speed = 400.f;
     Clock clock;
     Vector2f posStart1, posStart2;
     int vt1 = 0, vt2 = 0;
@@ -223,6 +226,19 @@ int main()
         window.draw(text_Next);
         window.draw(text1);
         window.draw(text2);
+
+        // Vẽ thông báo trùng màu nếu cờ đang bật
+        if (hienThongBaoTrungMau)
+        {
+            if (dongHoTrungMau.getElapsedTime().asSeconds() < 2.0f) // Hiện trong 2 giây
+            {
+                window.draw(text_Trung_mau);
+            }
+            else
+            {
+                hienThongBaoTrungMau = false; // Tắt thông báo sau 2 giây
+            }
+        }
 
         // Đã sửa 2 thành 6: Chỉ hiện khi thực sự Tạm dừng
         if (hienThongBaoPause)
@@ -418,57 +434,55 @@ int main()
 
         if (mauChon.a != 0) // Nếu người dùng click chọn một màu hợp lệ
         {
-            // 1. Đổi màu cho 3 bi mẫu khởi tạo ban đầu nếu chưa đổi đủ
-            if (indexMau < 3)
+            // 1. KIỂM TRA MÀU ĐÃ TỒN TẠI CHƯA
+            bool mauDaTonTai = false;
+            for (int i = 0; i < 3; i++)
             {
-                doimau(vienbi1, vienbi2, mauChon, indexMau);
-                indexMau++;
-            }
-
-            // 2. Tìm xem viên bi nào ở khay mẫu 1 đang được chọn (có viền đỏ -10.f)
-            int viTriBiDuocChon1 = -1;
-            for (int i = 0; i < vienbi1.size(); i++)
-            {
-                if (vienbi1[i].getOutlineThickness() == -10.f)
+                if (vienbi1[i].getFillColor() == mauChon)
                 {
-                    viTriBiDuocChon1 = i;
-                    break; // Thay continue bằng break để dừng vòng lặp ngay khi tìm thấy
+                    mauDaTonTai = true;
+                    break;
                 }
             }
 
-            // CHỐT CHẶN BẢO VỆ: Chỉ xử lý đổi màu nếu thực sự có bi đang được chọn
-            // Nếu không có bi nào được chọn, viTriBiDuocChon1 giữ nguyên = -1 và bỏ qua khối lệnh này (Không bị crash)
-            if (viTriBiDuocChon1 != -1)
+            // Nếu màu chưa tồn tại và chưa đổi quá 3 viên
+            if (!mauDaTonTai && indexMau < 3)
             {
-                int viTriBiDuocChon2 = -1;
-                // Tìm viên bi tương ứng ở khay mẫu 2 dựa trên màu cũ của khay mẫu 1
-                for (int j = 0; j < vienbi2.size(); j++)
+                // Thực hiện đổi màu như cũ
+                doimau(vienbi1, vienbi2, mauChon, indexMau);
+                indexMau++;
+
+                // Cập nhật màu cho bi đang được chọn
+                int viTriBiDuocChon1 = -1;
+                for (int i = 0; i < vienbi1.size(); i++)
                 {
-                    if (vienbi2[j].getFillColor() == vienbi1[viTriBiDuocChon1].getFillColor())
+                    if (vienbi1[i].getOutlineThickness() == -10.f)
                     {
-                        viTriBiDuocChon2 = j;
+                        viTriBiDuocChon1 = i;
                         break;
                     }
                 }
 
-                cout << "Vi tri bi duoc chon 1: " << viTriBiDuocChon1 << endl;
-                cout << "Vi tri bi duoc chon 2: " << viTriBiDuocChon2 << endl;
-
-                // Cập nhật màu mới cho các viên bi mẫu ở cả 2 khay mẫu
-                vienbi1[viTriBiDuocChon1].setFillColor(mauChon);
-                if (viTriBiDuocChon2 != -1)
+                if (viTriBiDuocChon1 != -1)
                 {
-                    vienbi2[viTriBiDuocChon2].setFillColor(mauChon);
-                }
+                    // Cập nhật màu cho khay 1 và 2
+                    vienbi1[viTriBiDuocChon1].setFillColor(mauChon);
+                    // (Bạn có thể giữ logic tìm viTriBiDuocChon2 ở đây nếu cần đồng bộ)
 
-                // Cập nhật màu mới cho toàn bộ các viên bi cùng loại trong danh sách đang sắp xếp dưới khay lớn
-                for (int k = 0; k < VienBi123.size(); k++)
-                {
-                    if (VienBi123[k] == viTriBiDuocChon1)
+                    // Cập nhật màu cho các viên bi cùng loại trong danh sách sắp xếp
+                    for (int k = 0; k < VienBi123.size(); k++)
                     {
-                        DSachVienBi[k].setFillColor(mauChon);
+                        if (VienBi123[k] == viTriBiDuocChon1)
+                        {
+                            DSachVienBi[k].setFillColor(mauChon);
+                        }
                     }
                 }
+            }
+            else if (mauDaTonTai)
+            {
+                hienThongBaoTrungMau = true;
+                dongHoTrungMau.restart();
             }
         }
         // ======================================================================
@@ -524,11 +538,11 @@ void taotext(Font &VNfont, Text &text_ResetAll, Text &text_ClearBi, Text &text_S
     text_ClearBi.setStyle(Text::Bold);
     text_ClearBi.setPosition({1405.f, 410.f});
 
-    text_Start.setString(L"Bắt đầu sắp xếp");
+    text_Start.setString(L"Bắt đầu");
     text_Start.setCharacterSize(40);
     text_Start.setFillColor(Color::White);
     text_Start.setStyle(Text::Bold);
-    text_Start.setPosition({1415.f, 510.f});
+    text_Start.setPosition({1280.f, 970.f});
 
     text_Exit.setString(L"Thoát");
     text_Exit.setCharacterSize(40);
@@ -548,17 +562,17 @@ void taotext(Font &VNfont, Text &text_ResetAll, Text &text_ClearBi, Text &text_S
     text_Next.setStyle(Text::Bold);
     text_Next.setPosition({1680.f, 970.f});
 
-    text_Pause.setString(L"Tạm dừng sắp xếp");
+    text_Pause.setString(L"Tạm dừng");
     text_Pause.setCharacterSize(40);
     text_Pause.setFillColor(Color::White);
     text_Pause.setStyle(Text::Bold);
-    text_Pause.setPosition({1415.f, 510.f});
+    text_Pause.setPosition({1260.f, 970.f});
 
-    text_Continue.setString(L"Tiếp tục sắp xếp");
+    text_Continue.setString(L"Tiếp tục");
     text_Continue.setCharacterSize(40);
     text_Continue.setFillColor(Color::White);
     text_Continue.setStyle(Text::Bold);
-    text_Continue.setPosition({1415.f, 510.f});
+    text_Continue.setPosition({1280.f, 970.f});
 
     text1.setString(L"  Click để thay đổi màu viên bi\nKéo thả để thay đổi vị trí viên bi");
     text1.setCharacterSize(35);
@@ -573,33 +587,39 @@ void taotext(Font &VNfont, Text &text_ResetAll, Text &text_ClearBi, Text &text_S
     text2.setPosition({1350.f, 300.f});
 }
 
-void taotextthongbao(Font &VNfont, Text &text_Pause1, Text &text_Maxbi, Text &text_Complete)
+void taotextthongbao(Font &VNfont, Text &text_Pause1, Text &text_Maxbi, Text &text_Complete, Text &text_Trung_mau)
 {
+    text_Trung_mau.setString(L"Màu này đã được sử dụng!");
+    text_Trung_mau.setCharacterSize(45);
+    text_Trung_mau.setFillColor(Color::Yellow);
+    text_Trung_mau.setStyle(Text::Bold);
+    text_Trung_mau.setPosition({x_Screen / 2.f - 240.f, y_Screen / 2.f - 130.f});
+
     text_Pause1.setString(L"Đã tạm dừng!");
     text_Pause1.setCharacterSize(50);
     text_Pause1.setFillColor(Color::Red);
     text_Pause1.setStyle(Text::Bold);
-    text_Pause1.setPosition({x_Screen / 2.f - 150.f, y_Screen / 2.f - 150.f});
+    text_Pause1.setPosition({x_Screen / 2.f - 150.f, y_Screen / 2.f + 130.f});
 
     text_Maxbi.setString(L"Đã thêm tối đa 40 viên bi!");
     text_Maxbi.setCharacterSize(45);
     text_Maxbi.setFillColor(Color::Red);
     text_Maxbi.setStyle(Text::Bold);
-    text_Maxbi.setPosition({x_Screen / 2.f - 220.f, y_Screen / 2.f - 150.f});
+    text_Maxbi.setPosition({x_Screen / 2.f - 220.f, y_Screen / 2.f + 130.f});
 
     text_Complete.setString(L"Đã hoàn thành sắp xếp!");
     text_Complete.setCharacterSize(45);
     text_Complete.setFillColor(Color::Green);
     text_Complete.setStyle(Text::Bold);
-    text_Complete.setPosition({x_Screen / 2.f - 220.f, y_Screen / 2.f - 150.f});
+    text_Complete.setPosition({x_Screen / 2.f - 220.f, y_Screen / 2.f + 130.f});
 }
 
 void taobutton(HCN_Bo_Goc &Start, HCN_Bo_Goc &ClearBi, HCN_Bo_Goc &ResetAll,
                HCN_Bo_Goc &Exit, HCN_Bo_Goc &Back, HCN_Bo_Goc &Next, HCN_Bo_Goc &Pause, HCN_Bo_Goc &Continue)
 {
     Vector2f KinhThuoc({480.f, 90.f});
-    Start = HCN_Bo_Goc(Vector2f(KinhThuoc), 20.f);
-    Start.setPosition({1325.f, 490.f});
+    Start = HCN_Bo_Goc(Vector2f({200.f, 80.f}), 20.f);
+    Start.setPosition({1250.f, 960.f});
     Start.setFillColor(Color::Green);
     Start.setOutlineColor(Color::White);
 
@@ -628,13 +648,13 @@ void taobutton(HCN_Bo_Goc &Start, HCN_Bo_Goc &ClearBi, HCN_Bo_Goc &ResetAll,
     Next.setFillColor(Color::Blue);
     Next.setOutlineColor(Color::White);
 
-    Pause = HCN_Bo_Goc(Vector2f({KinhThuoc}), 20.f);
-    Pause.setPosition({1325.f, 490.f});
+    Pause = HCN_Bo_Goc(Vector2f({200.f, 80.f}), 20.f);
+    Pause.setPosition({1250.f, 960.f});
     Pause.setFillColor(Color::Green);
     Pause.setOutlineColor(Color::White);
 
-    Continue = HCN_Bo_Goc(Vector2f({KinhThuoc}), 20.f);
-    Continue.setPosition({1325.f, 490.f});
+    Continue = HCN_Bo_Goc(Vector2f({200.f, 80.f}), 20.f);
+    Continue.setPosition({1250.f, 960.f});
     Continue.setFillColor(Color::Blue);
     Continue.setOutlineColor(Color::White);
 }
