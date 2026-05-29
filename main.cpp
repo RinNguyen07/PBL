@@ -1,4 +1,5 @@
 #include <SFML/Graphics.hpp>
+#include <SFML/Audio.hpp>
 #include <iostream>
 #include <cmath>
 #include <vector>
@@ -34,26 +35,22 @@ public:
 
     std::size_t getPointCount() const override
     {
-        return m_pointsPerCorner * 4; // 4 góc, mỗi góc có m_pointsPerCorner điểm
+        return m_pointsPerCorner * 4;
     }
 
     sf::Vector2f getPoint(std::size_t index) const override
     {
-        // Xác định điểm thuộc góc nào và vị trí thứ mấy trong góc đó
-        unsigned int goc = index / m_pointsPerCorner;   // 0=Dưới Phải, 1=Dưới Trái, 2=Trên Trái, 3=Trên Phải
-        unsigned int thuTu = index % m_pointsPerCorner; // Điểm thứ mấy trong góc
+        unsigned int goc = index / m_pointsPerCorner;
+        unsigned int thuTu = index % m_pointsPerCorner;
 
-        // Mỗi góc là 1/4 đường tròn (90 độ), chia đều cho số điểm
-        float gocBatDau = goc * 90.f;                                             // Góc bắt đầu của cung (độ)
-        float buocGoc = 90.f / (m_pointsPerCorner - 1);                           // Khoảng cách giữa các điểm (độ)
-        float gocHienTai = (gocBatDau + thuTu * buocGoc) * (3.14159265f / 180.f); // Đổi sang radian
+        float gocBatDau = goc * 90.f;
+        float buocGoc = 90.f / (m_pointsPerCorner - 1);
+        float gocHienTai = (gocBatDau + thuTu * buocGoc) * (3.14159265f / 180.f);
 
-        // Tâm của góc bo tròn (cách mép một khoảng bằng radius)
         sf::Vector2f tamGoc;
         tamGoc.x = (goc == 0 || goc == 3) ? m_size.x - m_radius : m_radius;
         tamGoc.y = (goc == 0 || goc == 1) ? m_size.y - m_radius : m_radius;
 
-        // Điểm trên cung tròn = tâm + radius theo hướng gocHienTai
         return {
             tamGoc.x + m_radius * std::cos(gocHienTai),
             tamGoc.y + m_radius * std::sin(gocHienTai)};
@@ -68,7 +65,8 @@ private:
 void taotext(Font &VNfont, Text &text_ResetAll, Text &text_ClearBi, Text &text_Start,
              Text &text_Exit, Text &text_Back, Text &text_Next, Text &text_Pause, Text &text_Continue, Text &text1, Text &text2);
 
-void taotextthongbao(Font &VNfont, Text &text_Pause1, Text &text_Maxbi, Text &text_Complete, Text &text_Trung_mau);
+void taotextthongbao(Font &VNfont, Text &text_Pause1, Text &text_Next1, Text &text_Back1, Text &text_Maxbi,
+                     Text &text_Complete, Text &text_Trung_mau);
 
 void taobutton(HCN_Bo_Goc &Start, HCN_Bo_Goc &ClearBi, HCN_Bo_Goc &ResetAll,
                HCN_Bo_Goc &Exit, HCN_Bo_Goc &Back, HCN_Bo_Goc &Next, HCN_Bo_Goc &Pause, HCN_Bo_Goc &Continue);
@@ -84,21 +82,23 @@ void XuLyHoverButton(HCN_Bo_Goc &button, Vector2f mousePos);
 void XuLyKeoTha(const optional<Event> &event, const RenderWindow &window, vector<CircleShape> &VienBi1,
                 vector<int> &VienBi123, bool &KTra, int &VienBiDangChon, int &VienBiDangChon2, Vector2f &offset, Vector2f &VTriBanDau, bool &ktraClick, int d);
 
-void XuLyClick(vector<CircleShape> &VienBi, int VienBiDangChon, Vector2f VTriBanDau, int d);
+void XuLyClick(const optional<Event> &event, const RenderWindow &window, vector<CircleShape> &VienBi, bool &ktraClick);
 
 void ThemBi(const optional<Event> &event, const RenderWindow &window, vector<CircleShape> &VienBi,
             vector<CircleShape> &DSachVienBi, vector<int> &VienBi123, bool &hienThongBao, Clock &dongHoThongBao);
 
 void dongboVienBi(vector<CircleShape> &vienbi1, vector<CircleShape> &vienbi2, vector<CircleShape> &DSachVienBi, vector<int> &VienBi123);
 
-bool XoaBi(const optional<Event> &event, const RenderWindow &window, vector<CircleShape> &DSachVienBi, vector<int> &VienBi123);
-
 void SapXepVienBi(vector<int> VienBi123, vector<pair<int, int>> &ViTriSwap);
 
 void AnimationGapKhuc(int &cheDoAnimation, int &indexHanhDong, float &timeAccumulated,
                       vector<CircleShape> &DSachVienBi, vector<int> &VienBi123, vector<pair<int, int>> &ViTriSwap,
                       int &vt1, int &vt2, Vector2f &posStart1, Vector2f &posStart2,
-                      float speed, float deltaTime);
+                      float speed, float deltaTime, sf::Music &nhacNen);
+
+void ChonMau(RenderWindow &window, vector<CircleShape> &vienbi1, vector<CircleShape> &vienbi2,
+             vector<CircleShape> &DSachVienBi, int &indexMau, Color &mauChon, vector<int> &VienBi123,
+             bool &hienThongBaoTrungMau, Clock &dongHoTrungMau, int &selectedDSIndex);
 
 Color Mau(float x, float y, float radius);
 
@@ -144,8 +144,18 @@ int main()
         return -1;
     }
 
+    sf::Music nhacNen;
+    if (!nhacNen.openFromFile("Itro.ogg"))
+    {
+        cerr << "Không thấy file nhạc audio/background.ogg! Hãy thêm file sau." << endl;
+    }
+    else
+    {
+        nhacNen.setLooping(true);
+        nhacNen.setVolume(50.f);
+    }
+
     Text text_ResetAll(VNfont);
-    Text text_Stop(VNfont);
     Text text_ClearBi(VNfont);
     Text text_Start(VNfont);
     Text text_Exit(VNfont);
@@ -158,33 +168,27 @@ int main()
     taotext(VNfont, text_ResetAll, text_ClearBi, text_Start, text_Exit, text_Back, text_Next, text_Pause, text_Continue, text1, text2);
 
     Text text_Pause1(VNfont);
+    Text text_Next1(VNfont);
+    Text text_Back1(VNfont);
     Text text_Maxbi(VNfont);
     Text text_Complete(VNfont);
     Text text_Trung_mau(VNfont);
     bool hienThongBaoTrungMau = false;
     Clock dongHoTrungMau;
-    taotextthongbao(VNfont, text_Pause1, text_Maxbi, text_Complete, text_Trung_mau);
+    taotextthongbao(VNfont, text_Pause1, text_Next1, text_Back1, text_Maxbi, text_Complete, text_Trung_mau);
 
-    Text text_X(VNfont);
-    text_X.setString("X");
-    text_X.setCharacterSize(30);
-    text_X.setFillColor(Color::Red);
-    text_X.setStyle(Text::Bold);
-
-    // Khai báo 2 biến để quản lý thời gian hiển thị thông báo
     bool hienThongBao = false;
     Clock dongHoThongBao;
 
     bool hienThongBaoPause = false;
     Clock dongHoThongBaoPause;
 
-    vector<pair<int, int>> ViTriVienBi1; // lưu vị trí ban đầu của 3 viên bi để sau này đồng bộ khi kéo thả
+    vector<pair<int, int>> ViTriVienBi1;
     vector<pair<int, int>> ViTriSwap;
     vector<CircleShape> DSachVienBi;
-    vector<int> VienBi123; // lưu 1, 2, 3 để dễ xử lí hơn
+    vector<int> VienBi123;
     int indexMau = 0;
     int Maxbi = 40;
-    // Biến kiểm tra đã click vào bi nào trong DSachVienBi chưa, để tránh xử lí kéo thả khi chỉ hover
 
     bool isDragging = false;
     int indexBiDangKeo = -1;
@@ -197,15 +201,16 @@ int main()
     Vector2f offsetDS;
     Vector2f viTriBanDauKhiKeoDS;
 
-    // --- BIẾN QUẢN LÝ ANIMATION ---
-    int cheDoAnimation = 0; // 0 = chưa chạy, 1 = đang chạy, 2 = tiến 1 bước, 3 = lùi 1 bước, 4 = hoàn thành
-    int indexHanhDong = 0;  // Đang chạy tới bước swap thứ mấy
+    int cheDoAnimation = 0;
+    int indexHanhDong = 0;
     float timeAccumulated = 0;
     float speed = 400.f;
     Clock clock;
     Vector2f posStart1, posStart2;
     int vt1 = 0, vt2 = 0;
-    // ------------------------------
+
+    // --- BIẾN MỚI: lưu chỉ số viên bi được chọn trong DSachVienBi (-1 = không chọn) ---
+    int selectedDSIndex = -1;
 
     while (window.isOpen())
     {
@@ -226,37 +231,25 @@ int main()
         window.draw(text_Next);
         window.draw(text1);
         window.draw(text2);
-
-        // Vẽ thông báo trùng màu nếu cờ đang bật
         if (hienThongBaoTrungMau)
         {
-            if (dongHoTrungMau.getElapsedTime().asSeconds() < 2.0f) // Hiện trong 2 giây
-            {
+            if (dongHoTrungMau.getElapsedTime().asSeconds() < 2.0f)
                 window.draw(text_Trung_mau);
-            }
             else
-            {
-                hienThongBaoTrungMau = false; // Tắt thông báo sau 2 giây
-            }
+                hienThongBaoTrungMau = false;
         }
 
-        // Đã sửa 2 thành 6: Chỉ hiện khi thực sự Tạm dừng
         if (hienThongBaoPause)
         {
             if (dongHoThongBaoPause.getElapsedTime().asSeconds() < 3.0f)
-            {
                 window.draw(text_Pause1);
-            }
             else
-            {
-                hienThongBaoPause = false; // Tự động tắt sau 3 giây
-            }
+                hienThongBaoPause = false;
         }
 
         if (cheDoAnimation == 4)
             window.draw(text_Complete);
 
-        // Vẽ nút Start hoặc Pause/Continue tùy theo trạng thái
         if (ViTriSwap.empty())
         {
             window.draw(Start);
@@ -264,17 +257,22 @@ int main()
         }
         else
         {
-            if (cheDoAnimation == 0 || cheDoAnimation == 6) // Sửa để hiện nút Continue đúng lúc
+            if (cheDoAnimation == 0 || cheDoAnimation == 6)
             {
                 window.draw(Continue);
                 window.draw(text_Continue);
             }
-            else
+            else if (cheDoAnimation == 1 || cheDoAnimation == 5)
             {
                 window.draw(Pause);
                 window.draw(text_Pause);
             }
         }
+
+        if (cheDoAnimation == 2)
+            window.draw(text_Next1);
+        else if (cheDoAnimation == 3)
+            window.draw(text_Back1);
 
         for (auto bi : vienbi1)
             window.draw(bi);
@@ -282,33 +280,35 @@ int main()
             window.draw(bi);
         for (auto bi : DSachVienBi)
             window.draw(bi);
+
         bool clickBangMau = false;
         float deltaTime = clock.restart().asSeconds();
-        bool ktraClick = false; // Biến kiểm tra đã click vào bi nào chưa, để tránh xử lí kéo thả khi chỉ hover
+        bool ktraAdd = false;
+        bool ktraClick = false;
         bool ktraClickDS = false;
 
         while (const optional<Event> event = window.pollEvent())
         {
             if (event->is<Event::Closed>())
                 window.close();
-            XuLyKeoTha(event, window, vienbi1, VienBi123, isDragging, indexBiDangKeo, VienBiDangChon2, offset, viTriBanDauKhiKeo, ktraClick, 1);
-            if (ktraClick == true) // Nếu không đang kéo bi nào, mới xử lí thêm bi
+
+            XuLyKeoTha(event, window, vienbi2, VienBi123, isDragging, indexBiDangKeo, VienBiDangChon2, offset, viTriBanDauKhiKeo, ktraAdd, 1);
+            if (ktraAdd == true)
             {
-                XuLyClick(vienbi1, VienBiDangChon2, viTriBanDauKhiKeo, 0);
-                ktraClick = false; // Reset lại biến sau khi xử lí xong
+                ThemBi(event, window, vienbi2, DSachVienBi, VienBi123, hienThongBao, dongHoThongBao);
+                ktraAdd = false;
             }
-            ThemBi(event, window, vienbi2, DSachVienBi, VienBi123, hienThongBao, dongHoThongBao);
-            // Kiểm tra nếu thả chuột trái sau khi kéo bi 1, thì đồng bộ bi 2 theo:
+
+            XuLyClick(event, window, vienbi1, ktraClick);
+
             if (const auto *mouseButtonReleased = event->getIf<Event::MouseButtonReleased>())
             {
                 if (mouseButtonReleased->button == Mouse::Button::Left)
                 {
-                    dongboVienBi(vienbi1, vienbi2, DSachVienBi, VienBi123);
+                    dongboVienBi(vienbi2, vienbi1, DSachVienBi, VienBi123);
                 }
             }
 
-            // xử lí các nút bấm
-            // xử lí các nút bấm
             if (const auto *mouseButtonPressed = event->getIf<Event::MouseButtonPressed>())
             {
                 Vector2f mousePos = window.mapPixelToCoords(mouseButtonPressed->position);
@@ -316,8 +316,36 @@ int main()
                 {
                     clickBangMau = true;
 
-                    // 1. NÚT START / PAUSE / CONTINUE (Nằm cùng một vị trí tọa độ)
-                    // 1. NÚT START / PAUSE / CONTINUE
+                    // XỬ LÝ CHỌN VIÊN BI TRONG DANH SÁCH (DSachVienBi)
+                    bool hitDS = false;
+                    for (int i = 0; i < DSachVienBi.size(); i++)
+                    {
+                        float r = DSachVienBi[i].getRadius() * DSachVienBi[i].getScale().x;
+                        Vector2f center = DSachVienBi[i].getPosition();
+                        float dx = mousePos.x - center.x;
+                        float dy = mousePos.y - center.y;
+                        if (dx * dx + dy * dy <= r * r)
+                        {
+                            // Bỏ chọn viên cũ nếu có
+                            if (selectedDSIndex != -1 && selectedDSIndex < DSachVienBi.size())
+                                DSachVienBi[selectedDSIndex].setOutlineThickness(0.f);
+                            // Chọn viên mới
+                            selectedDSIndex = i;
+                            DSachVienBi[i].setOutlineThickness(-5.f);
+                            DSachVienBi[i].setOutlineColor(Color::Yellow);
+                            hitDS = true;
+                            break;
+                        }
+                    }
+                    if (!hitDS && selectedDSIndex != -1)
+                    {
+                        // Click ra ngoài -> bỏ chọn
+                        if (selectedDSIndex < DSachVienBi.size())
+                            DSachVienBi[selectedDSIndex].setOutlineThickness(0.f);
+                        selectedDSIndex = -1;
+                    }
+
+                    // CÁC NÚT BẤM (Start, Next, Back, Clear, Reset, Exit) giữ nguyên
                     if (Start.getGlobalBounds().contains(mousePos))
                     {
                         if (ViTriSwap.empty())
@@ -328,51 +356,53 @@ int main()
                                 cheDoAnimation = 1;
                                 indexHanhDong = 0;
                                 timeAccumulated = 0.f;
+                                nhacNen.play();
                             }
                         }
                         else
                         {
                             if (cheDoAnimation == 1)
                             {
-                                cheDoAnimation = 5; // Đang chạy -> Bấm Tạm dừng (để chạy nốt bước hiện tại rồi sang 6)
+                                cheDoAnimation = 5;
                                 hienThongBaoPause = true;
                                 dongHoThongBaoPause.restart();
+                                nhacNen.pause();
                             }
                             else if (cheDoAnimation == 0 || cheDoAnimation == 6)
                             {
-                                cheDoAnimation = 1; // Đang đứng im -> Chạy tiếp
+                                cheDoAnimation = 1;
                                 hienThongBaoPause = false;
+                                nhacNen.play();
                             }
                             else if (cheDoAnimation == 4)
                             {
                                 indexHanhDong = 0;
                                 timeAccumulated = 0.f;
                                 cheDoAnimation = 1;
+                                nhacNen.play();
                             }
                         }
                     }
 
-                    // 2. NÚT TIẾP THEO (NEXT)
                     if (Next.getGlobalBounds().contains(mousePos) && indexHanhDong < ViTriSwap.size())
                     {
                         if (cheDoAnimation == 0 || cheDoAnimation == 6 || cheDoAnimation == 4)
                         {
-                            cheDoAnimation = 2; // Đặt về chế độ chạy 1 bước (khi chạy xong sẽ về 0, KHÔNG hiện chữ Pause)
+                            cheDoAnimation = 2;
                             timeAccumulated = 0.f;
                         }
                     }
 
-                    // 3. NÚT QUAY LẠI (BACK)
                     if (Back.getGlobalBounds().contains(mousePos) && indexHanhDong > 0)
                     {
                         if (cheDoAnimation == 0 || cheDoAnimation == 6 || cheDoAnimation == 4)
                         {
-                            cheDoAnimation = 3; // Chuyển sang chế độ chạy lùi 1 bước (chạy xong về 0)
+                            cheDoAnimation = 3;
                             timeAccumulated = 0.f;
                             indexHanhDong--;
                         }
                     }
-                    // 4. NÚT CLEAR BI
+
                     if (ClearBi.getGlobalBounds().contains(mousePos))
                     {
                         hienThongBaoPause = false;
@@ -381,9 +411,10 @@ int main()
                         ViTriSwap.clear();
                         cheDoAnimation = 0;
                         indexHanhDong = 0;
+                        nhacNen.stop();
+                        selectedDSIndex = -1; // reset chọn
                     }
 
-                    // 5. NÚT RESET ALL
                     if (ResetAll.getGlobalBounds().contains(mousePos))
                     {
                         hienThongBaoPause = false;
@@ -398,9 +429,10 @@ int main()
                         ViTriSwap.clear();
                         cheDoAnimation = 0;
                         indexHanhDong = 0;
+                        nhacNen.stop();
+                        selectedDSIndex = -1; // reset chọn
                     }
 
-                    // 6. NÚT THOÁT
                     if (Exit.getGlobalBounds().contains(mousePos))
                     {
                         window.close();
@@ -408,11 +440,6 @@ int main()
                 }
             }
 
-            bool daXoaBi = XoaBi(event, window, DSachVienBi, VienBi123);
-            if (daXoaBi == false) // Nếu không xóa bi nào, mới xử lí kéo thả dãy bi
-                XuLyKeoTha(event, window, DSachVienBi, VienBi123, isDraggingDS, indexBiDangKeoDS, VienBiDangChon2, offsetDS, viTriBanDauKhiKeoDS, ktraClickDS, 10);
-
-            // xu lí hover nút
             if (const auto *mouseMoved = event->getIf<Event::MouseMoved>())
             {
                 Vector2f mousePos = window.mapPixelToCoords(mouseMoved->position);
@@ -429,89 +456,19 @@ int main()
             }
         }
 
-        // Chỉ gọi hàm vẽ/bắt sự kiện bảng màu 1 lần duy nhất
         Color mauChon = ve_luc_giac_to(window, {380.f, 320.f}, 14.f, 10, clickBangMau);
+        // GỌI HÀM CHỌN MÀU MỚI, có truyền selectedDSIndex
+        ChonMau(window, vienbi1, vienbi2, DSachVienBi, indexMau, mauChon, VienBi123,
+                hienThongBaoTrungMau, dongHoTrungMau, selectedDSIndex);
 
-        if (mauChon.a != 0) // Nếu người dùng click chọn một màu hợp lệ
-        {
-            // 1. KIỂM TRA MÀU ĐÃ TỒN TẠI CHƯA
-            bool mauDaTonTai = false;
-            for (int i = 0; i < 3; i++)
-            {
-                if (vienbi1[i].getFillColor() == mauChon)
-                {
-                    mauDaTonTai = true;
-                    break;
-                }
-            }
+        AnimationGapKhuc(cheDoAnimation, indexHanhDong, timeAccumulated, DSachVienBi, VienBi123, ViTriSwap, vt1, vt2, posStart1, posStart2, speed, deltaTime, nhacNen);
 
-            // Nếu màu chưa tồn tại và chưa đổi quá 3 viên
-            if (!mauDaTonTai && indexMau < 3)
-            {
-                // Thực hiện đổi màu như cũ
-                doimau(vienbi1, vienbi2, mauChon, indexMau);
-                indexMau++;
-
-                // Cập nhật màu cho bi đang được chọn
-                int viTriBiDuocChon1 = -1;
-                for (int i = 0; i < vienbi1.size(); i++)
-                {
-                    if (vienbi1[i].getOutlineThickness() == -10.f)
-                    {
-                        viTriBiDuocChon1 = i;
-                        break;
-                    }
-                }
-
-                if (viTriBiDuocChon1 != -1)
-                {
-                    // Cập nhật màu cho khay 1 và 2
-                    vienbi1[viTriBiDuocChon1].setFillColor(mauChon);
-                    // (Bạn có thể giữ logic tìm viTriBiDuocChon2 ở đây nếu cần đồng bộ)
-
-                    // Cập nhật màu cho các viên bi cùng loại trong danh sách sắp xếp
-                    for (int k = 0; k < VienBi123.size(); k++)
-                    {
-                        if (VienBi123[k] == viTriBiDuocChon1)
-                        {
-                            DSachVienBi[k].setFillColor(mauChon);
-                        }
-                    }
-                }
-            }
-            else if (mauDaTonTai)
-            {
-                hienThongBaoTrungMau = true;
-                dongHoTrungMau.restart();
-            }
-        }
-        // ======================================================================
-
-        AnimationGapKhuc(cheDoAnimation, indexHanhDong, timeAccumulated, DSachVienBi, VienBi123, ViTriSwap, vt1, vt2, posStart1, posStart2, speed, deltaTime);
-        // ------------------------------------------------
-
-        for (int i = 0; i < DSachVienBi.size(); i++)
-        {
-            if (DSachVienBi[i].getOutlineThickness() == -10.f)
-            {
-                float R = DSachVienBi[i].getRadius() * DSachVienBi[i].getScale().x;
-                Vector2f TamBi = DSachVienBi[i].getPosition();
-                float x_TopRight = TamBi.x + R * 0.707f;
-                float y_TopRight = TamBi.y - R * 0.707f;
-                text_X.setPosition({x_TopRight - 10.f, y_TopRight - 20.f});
-                window.draw(text_X);
-            }
-        }
         if (hienThongBao == true)
         {
             if (dongHoThongBao.getElapsedTime().asSeconds() < 2.0f)
-            {
                 window.draw(text_Maxbi);
-            }
             else
-            {
                 hienThongBao = false;
-            }
         }
 
         Text tCount(VNfont, "Danh sach bi: " + to_string(DSachVienBi.size()) + " / " + to_string(Maxbi), 35);
@@ -523,6 +480,8 @@ int main()
     return 0;
 }
 
+// ------------------- CÁC HÀM (giữ nguyên, CHỈ SỬA ChonMau) -------------------
+
 void taotext(Font &VNfont, Text &text_ResetAll, Text &text_ClearBi, Text &text_Start,
              Text &text_Exit, Text &text_Back, Text &text_Next, Text &text_Pause, Text &text_Continue, Text &text1, Text &text2)
 {
@@ -530,13 +489,13 @@ void taotext(Font &VNfont, Text &text_ResetAll, Text &text_ClearBi, Text &text_S
     text_ResetAll.setCharacterSize(40);
     text_ResetAll.setFillColor(Color::Black);
     text_ResetAll.setStyle(Text::Bold);
-    text_ResetAll.setPosition({840.f, 510.f});
+    text_ResetAll.setPosition({825.f, 470.f});
 
     text_ClearBi.setString(L"Xóa tất cả viên bi");
     text_ClearBi.setCharacterSize(40);
     text_ClearBi.setFillColor(Color::White);
     text_ClearBi.setStyle(Text::Bold);
-    text_ClearBi.setPosition({1405.f, 410.f});
+    text_ClearBi.setPosition({1405.f, 470.f});
 
     text_Start.setString(L"Bắt đầu");
     text_Start.setCharacterSize(40);
@@ -574,32 +533,45 @@ void taotext(Font &VNfont, Text &text_ResetAll, Text &text_ClearBi, Text &text_S
     text_Continue.setStyle(Text::Bold);
     text_Continue.setPosition({1280.f, 970.f});
 
-    text1.setString(L"  Click để thay đổi màu viên bi\nKéo thả để thay đổi vị trí viên bi");
+    text1.setString(L"Click để thay đổi màu viên bi");
     text1.setCharacterSize(35);
     text1.setFillColor(Color::White);
     text1.setStyle(Text::Bold);
     text1.setPosition({700.f, 290.f});
 
-    text2.setString(L"Click để thêm viên bi mới");
+    text2.setString(L"  Click để thêm viên bi mới\nKéo thả để thay đổi vị trí viên bi");
     text2.setCharacterSize(35);
     text2.setFillColor(Color::White);
     text2.setStyle(Text::Bold);
     text2.setPosition({1350.f, 300.f});
 }
 
-void taotextthongbao(Font &VNfont, Text &text_Pause1, Text &text_Maxbi, Text &text_Complete, Text &text_Trung_mau)
+void taotextthongbao(Font &VNfont, Text &text_Pause1, Text &text_Next1, Text &text_Back1, Text &text_Maxbi,
+                     Text &text_Complete, Text &text_Trung_mau)
 {
     text_Trung_mau.setString(L"Màu này đã được sử dụng!");
     text_Trung_mau.setCharacterSize(45);
     text_Trung_mau.setFillColor(Color::Yellow);
     text_Trung_mau.setStyle(Text::Bold);
-    text_Trung_mau.setPosition({x_Screen / 2.f - 240.f, y_Screen / 2.f - 130.f});
+    text_Trung_mau.setPosition({x_Screen / 2.f - 240.f, y_Screen / 2.f - 160.f});
 
     text_Pause1.setString(L"Đã tạm dừng!");
     text_Pause1.setCharacterSize(50);
     text_Pause1.setFillColor(Color::Red);
     text_Pause1.setStyle(Text::Bold);
     text_Pause1.setPosition({x_Screen / 2.f - 150.f, y_Screen / 2.f + 130.f});
+
+    text_Next1.setString(L"Đang tiến 1 bước");
+    text_Next1.setCharacterSize(45);
+    text_Next1.setFillColor(Color::White);
+    text_Next1.setStyle(Text::Bold);
+    text_Next1.setPosition({x_Screen / 2.f - 150.f, y_Screen / 2.f + 130.f});
+
+    text_Back1.setString(L"Đang lùi 1 bước");
+    text_Back1.setCharacterSize(45);
+    text_Back1.setFillColor(Color::White);
+    text_Back1.setStyle(Text::Bold);
+    text_Back1.setPosition({x_Screen / 2.f - 150.f, y_Screen / 2.f + 130.f});
 
     text_Maxbi.setString(L"Đã thêm tối đa 40 viên bi!");
     text_Maxbi.setCharacterSize(45);
@@ -624,12 +596,12 @@ void taobutton(HCN_Bo_Goc &Start, HCN_Bo_Goc &ClearBi, HCN_Bo_Goc &ResetAll,
     Start.setOutlineColor(Color::White);
 
     ClearBi = HCN_Bo_Goc(Vector2f(KinhThuoc), 20.f);
-    ClearBi.setPosition({1325.f, 390.f});
+    ClearBi.setPosition({1330.f, 448.f});
     ClearBi.setFillColor(Color::Red);
     ClearBi.setOutlineColor(Color::White);
 
     ResetAll = HCN_Bo_Goc(Vector2f(KinhThuoc), 20.f);
-    ResetAll.setPosition({710.f, 490.f});
+    ResetAll.setPosition({710.f, 448.f});
     ResetAll.setFillColor(Color::White);
     ResetAll.setOutlineColor(Color::White);
 
@@ -681,7 +653,7 @@ void taohinh(RectangleShape &nen, HCN_Bo_Goc &nen1, HCN_Bo_Goc &nen2, HCN_Bo_Goc
 void doimau(vector<CircleShape> &vienbi1, vector<CircleShape> &vienbi2, Color mau, int &indexMau)
 {
     if (indexMau >= 3)
-        return; // Chỉ tạo tối đa 3 viên bi mỗi lần gọi hàm
+        return;
     vienbi1[indexMau].setFillColor(mau);
     vienbi2[indexMau].setFillColor(mau);
 }
@@ -706,27 +678,24 @@ void XuLiHover(vector<CircleShape> &VienBi, Vector2f mousePos)
 
 void XuLyHoverButton(HCN_Bo_Goc &button, Vector2f mousePos)
 {
-    // Kiểm tra xem chuột có nằm trong phạm vi của nút không
     if (button.getGlobalBounds().contains(mousePos))
     {
         button.setOutlineThickness(-5.f);
-        button.setOutlineColor(Color::White); // Bo viền trắng
+        button.setOutlineColor(Color::White);
     }
     else
     {
-        button.setOutlineThickness(0.f); // Tắt viền khi chuột đi ra
+        button.setOutlineThickness(0.f);
     }
 }
 
 void XuLyKeoTha(const optional<Event> &event, const RenderWindow &window, vector<CircleShape> &VienBi1,
                 vector<int> &VienBi123, bool &KTra, int &VienBiDangChon, int &VienBiDangChon2, Vector2f &offset, Vector2f &VTriBanDau, bool &ktraClick, int d)
 {
-    // STEP 1: click chuột trái, giữ chuột trái
-    if (const auto *mouseButtonPressed = event->getIf<Event::MouseButtonPressed>()) // Ktra nhấn giữ chuột
+    if (const auto *mouseButtonPressed = event->getIf<Event::MouseButtonPressed>())
     {
         if (mouseButtonPressed->button == Mouse::Button::Left)
         {
-
             Vector2f mousePos = window.mapPixelToCoords(Mouse::getPosition(window));
 
             for (int i = VienBi1.size() - 1; i >= 0; --i)
@@ -747,29 +716,22 @@ void XuLyKeoTha(const optional<Event> &event, const RenderWindow &window, vector
         }
     }
 
-    // STEP 2: thả chuột trái
     if (const auto *mouseButtonRelased = event->getIf<Event::MouseButtonReleased>())
     {
         if (mouseButtonRelased->button == Mouse::Button::Left && KTra)
         {
             bool KTraSwap = false;
             Vector2f TamBiDangChon = VienBi1[VienBiDangChon].getPosition();
-            // check xem đây là kéo hay click chuột
             float Check_KCach = sqrt(pow(TamBiDangChon.x - VTriBanDau.x, 2) + pow(TamBiDangChon.y - VTriBanDau.y, 2));
             if (Check_KCach < 5.f)
             {
-                // XuLyClick(VienBi1, VienBiDangChon, VTriBanDau, 0);
-                // return true;
                 ktraClick = true;
-                VienBiDangChon2 = VienBiDangChon;
             }
             for (int i = 0; i < VienBi1.size(); i++)
             {
                 if (i != VienBiDangChon)
                 {
                     Vector2f TamBi2 = VienBi1[i].getPosition();
-
-                    float BKinh = VienBi1[i].getRadius();
                     float KCach2 = sqrt(pow(TamBiDangChon.x - TamBi2.x, 2) + pow(TamBiDangChon.y - TamBi2.y, 2));
 
                     if (KCach2 <= VienBi1[i].getRadius() * 1.f)
@@ -779,7 +741,6 @@ void XuLyKeoTha(const optional<Event> &event, const RenderWindow &window, vector
                         swap(VienBi1[VienBiDangChon], VienBi1[i]);
                         if (d == 10)
                         {
-                            // Cập nhật vị trí trong mảng đồng bộ
                             swap(VienBi123[VienBiDangChon], VienBi123[i]);
                         }
 
@@ -794,17 +755,14 @@ void XuLyKeoTha(const optional<Event> &event, const RenderWindow &window, vector
                 VienBi1[VienBiDangChon].setPosition(VTriBanDau);
             }
 
-            // Reset trạng thái kéo
             KTra = false;
             VienBiDangChon = -1;
         }
     }
 
-    // STEP 3: di chuyển viên bi theo chuột
     if (const auto *mouseMoved = event->getIf<Event::MouseMoved>())
     {
         Vector2f mousePos = window.mapPixelToCoords(Mouse::getPosition(window));
-        // Chỉ cập nhật vị trí khi đang giữ chuột (KTra = true)
         if (KTra && VienBiDangChon != -1)
         {
             VienBi1[VienBiDangChon].setPosition(mousePos + offset);
@@ -814,100 +772,36 @@ void XuLyKeoTha(const optional<Event> &event, const RenderWindow &window, vector
     }
 }
 
-void XuLyClick(vector<CircleShape> &VienBi, int VienBiDangChon, Vector2f VTriBanDau, int d)
+void XuLyClick(const optional<Event> &event, const RenderWindow &window, vector<CircleShape> &VienBi, bool &ktraClick)
 {
-    // Kiểm tra xem viên bi này có đang được bật viền hay không 0 là k bật, 1 là đang bật VienBi1, 2 là đang bật DSachVienBi
-    if (d == 0)
+    if (const auto *mouseButtonPressed = event->getIf<Event::MouseButtonPressed>())
     {
-        if (VienBi[VienBiDangChon].getOutlineThickness() == -10.f)
-        {
-            VienBi[VienBiDangChon].setOutlineThickness(0.f);
-        }
-        else
-        {
-            cout << "Đang click vào viên bi thứ " << VienBiDangChon + 1 << endl;
-            VienBi[VienBiDangChon].setOutlineThickness(-10.f);
-
-            for (int i = 0; i < VienBi.size(); i++)
-            {
-                if (VienBiDangChon != i)
-                {
-                    VienBi[i].setOutlineThickness(0.f);
-                }
-            }
-        }
-    }
-    else if (d == 1)
-    {
-        Vector2f TamBiDangChon = VienBi[VienBiDangChon].getPosition();
-        float Check_KCach = sqrt(pow(TamBiDangChon.x - VTriBanDau.x, 2) + pow(TamBiDangChon.y - VTriBanDau.y, 2));
-        if (Check_KCach >= 5.f)
-            for (int i = 0; i < VienBi.size(); i++)
-                VienBi[i].setOutlineThickness(0.f);
-    }
-    // else if (d == 2)
-    // {
-    //     Vector2f TamBiDangChon = VienBi[VienBiDangChon].getPosition();
-    //     float Check_KCach = sqrt(pow(TamBiDangChon.x - VTriBanDau.x, 2) + pow(TamBiDangChon.y - VTriBanDau.y, 2));
-    //     if (Check_KCach >= 5.f)
-    //         for (int i = 0; i < VienBi.size(); i++)
-    //             VienBi[i].setOutlineThickness(0.f);
-    // }
-}
-
-void ThemBi(const optional<Event> &event, const RenderWindow &window, vector<CircleShape> &VienBi,
-            vector<CircleShape> &DSachVienBi, vector<int> &VienBi123, bool &hienThongBao, Clock &dongHoThongBao)
-{
-    Vector2f mousePos = window.mapPixelToCoords(Mouse::getPosition(window));
-    XuLiHover(VienBi, mousePos);
-
-    if (const auto *mouseButtonPressed = event->getIf<Event::MouseButtonPressed>()) // Ktra nhấn giữ chuột
-    {
+        Vector2f mousePos = window.mapPixelToCoords(mouseButtonPressed->position);
         if (mouseButtonPressed->button == Mouse::Button::Left)
         {
             for (int i = 0; i < VienBi.size(); i++)
             {
                 Vector2f TamBi = VienBi[i].getPosition();
                 float KCach = sqrt(pow(mousePos.x - TamBi.x, 2) + pow(mousePos.y - TamBi.y, 2));
-                if (KCach <= 75.f)
+                if (KCach <= VienBi[i].getRadius())
                 {
-                    // --- CHỐT CHẶN BẢO VỆ Ở ĐÂY ---
-                    // Nếu đã đủ 40 viên thì bật thông báo, reset đồng hồ và thoát vòng lặp ngay
-                    if (DSachVienBi.size() >= 40)
+                    ktraClick = true;
+                    if (VienBi[i].getOutlineThickness() == -10.f)
                     {
-                        hienThongBao = true;
-                        dongHoThongBao.restart();
-                        break;
+                        VienBi[i].setOutlineThickness(0.f);
                     }
-                    CircleShape bi(70.f);
-                    bi.setOrigin({70.f, 70.f});
-                    bi.setFillColor(VienBi[i].getFillColor());
-                    bi.setOutlineThickness(0.f);
-                    bi.setOutlineColor(Color::White);
-                    DSachVienBi.push_back(bi);
-                    VienBi123.push_back(i); // lưu số thứ tự của viên bi được thêm vào
-
-                    float X_Center = x_Screen / 2.f;
-                    float Y_BanDau = 830.f;
-                    float X_KCach = 160.f;
-                    int N = DSachVienBi.size();
-                    // tìm tọa độ x
-                    // CThuc: Tâm màn hình - (Tổng chiều dài của cả dãy / 2)
-                    float X_BanDau = X_Center - ((N - 1) * X_KCach / 2);
-                    float Max_Width = x_Screen - 150.f;
-                    float DSVB_Width = ((N - 1) * X_KCach) + (75.f * 2); // chiều dài DSachVienBi
-                    float Scale = 1.0f;
-                    if (DSVB_Width > Max_Width)
+                    else
                     {
-                        Scale = Max_Width / DSVB_Width;
-                        X_KCach *= Scale;
-                        X_BanDau = X_Center - ((N - 1) * X_KCach) / 2.0f;
-                    }
+                        cout << "Đang click vào viên bi thứ " << i + 1 << endl;
+                        VienBi[i].setOutlineThickness(-10.f);
 
-                    for (int j = 0; j < N; j++)
-                    {
-                        DSachVienBi[j].setPosition({X_BanDau + j * X_KCach, Y_BanDau});
-                        DSachVienBi[j].setScale({Scale, Scale});
+                        for (int j = 0; j < VienBi.size(); j++)
+                        {
+                            if (i != j)
+                            {
+                                VienBi[j].setOutlineThickness(0.f);
+                            }
+                        }
                     }
                     break;
                 }
@@ -916,20 +810,67 @@ void ThemBi(const optional<Event> &event, const RenderWindow &window, vector<Cir
     }
 }
 
+void ThemBi(const optional<Event> &event, const RenderWindow &window, vector<CircleShape> &VienBi,
+            vector<CircleShape> &DSachVienBi, vector<int> &VienBi123, bool &hienThongBao, Clock &dongHoThongBao)
+{
+    Vector2f mousePos = window.mapPixelToCoords(Mouse::getPosition(window));
+    XuLiHover(VienBi, mousePos);
+
+    for (int i = 0; i < VienBi.size(); i++)
+    {
+        Vector2f TamBi = VienBi[i].getPosition();
+        float KCach = sqrt(pow(mousePos.x - TamBi.x, 2) + pow(mousePos.y - TamBi.y, 2));
+        if (KCach <= 75.f)
+        {
+            if (DSachVienBi.size() >= 40)
+            {
+                hienThongBao = true;
+                dongHoThongBao.restart();
+                break;
+            }
+            CircleShape bi(70.f);
+            bi.setOrigin({70.f, 70.f});
+            bi.setFillColor(VienBi[i].getFillColor());
+            bi.setOutlineThickness(0.f);
+            bi.setOutlineColor(Color::White);
+            DSachVienBi.push_back(bi);
+            VienBi123.push_back(i);
+
+            float X_Center = x_Screen / 2.f;
+            float Y_BanDau = 830.f;
+            float X_KCach = 160.f;
+            int N = DSachVienBi.size();
+
+            float X_BanDau = X_Center - ((N - 1) * X_KCach / 2);
+            float Max_Width = x_Screen - 150.f;
+            float DSVB_Width = ((N - 1) * X_KCach) + (75.f * 2);
+            float Scale = 1.0f;
+            if (DSVB_Width > Max_Width)
+            {
+                Scale = Max_Width / DSVB_Width;
+                X_KCach *= Scale;
+                X_BanDau = X_Center - ((N - 1) * X_KCach) / 2.0f;
+            }
+
+            for (int j = 0; j < N; j++)
+            {
+                DSachVienBi[j].setPosition({X_BanDau + j * X_KCach, Y_BanDau});
+                DSachVienBi[j].setScale({Scale, Scale});
+            }
+            break;
+        }
+    }
+}
+
 void dongboVienBi(vector<CircleShape> &vienbi1, vector<CircleShape> &vienbi2, vector<CircleShape> &DSachVienBi, vector<int> &VienBi123)
 {
-    // Đảm bảo 2 mảng có số lượng bi bằng nhau để không bị lỗi văng game
-
-    // 2. Chốt kiểm tra an toàn: Nếu khay dưới chưa có bi thì thoát
     if (DSachVienBi.empty() || VienBi123.empty() || DSachVienBi.size() != VienBi123.size())
         return;
 
-    // 3. Đọc màu từ khay mẫu
-    Color mau0 = vienbi1[0].getFillColor(); // Vị trí đầu quy thành số 0
-    Color mau1 = vienbi1[1].getFillColor(); // Vị trí giữa quy thành số 1
-    Color mau2 = vienbi1[2].getFillColor(); // Vị trí cuối quy thành số 2
+    Color mau0 = vienbi1[0].getFillColor();
+    Color mau1 = vienbi1[1].getFillColor();
+    Color mau2 = vienbi1[2].getFillColor();
 
-    // 4. Áp dụng quy tắc màu xuống mảng logic VienBi123
     for (int i = 0; i < DSachVienBi.size(); i++)
     {
         Color mauHienTai = DSachVienBi[i].getFillColor();
@@ -941,70 +882,8 @@ void dongboVienBi(vector<CircleShape> &vienbi1, vector<CircleShape> &vienbi2, ve
         else if (mauHienTai == mau2)
             VienBi123[i] = 2;
         else
-            VienBi123[i] = 1; // Màu lạ cho đứng giữa
+            VienBi123[i] = 1;
     }
-}
-
-bool XoaBi(const optional<Event> &event, const RenderWindow &window, vector<CircleShape> &DSachVienBi, vector<int> &VienBi123)
-{
-    if (const auto *mouseButtonPressed = event->getIf<Event::MouseButtonPressed>())
-    {
-        if (mouseButtonPressed->button == Mouse::Button::Left)
-        {
-            Vector2f mousePos = window.mapPixelToCoords(Mouse::getPosition(window));
-
-            for (int i = 0; i < DSachVienBi.size(); i++)
-            {
-                // Chỉ xét viên bi đang được bật viền đỏ (-10.f)
-                if (DSachVienBi[i].getOutlineThickness() == -10.f)
-                {
-                    // Toán học: Lấy tọa độ góc trên bên phải (chỗ đặt dấu X)
-                    float R = DSachVienBi[i].getRadius() * DSachVienBi[i].getScale().x;
-                    Vector2f TamBi = DSachVienBi[i].getPosition();
-                    float x_TopRight = TamBi.x + R * cos(45 * 3.14159265f / 180.f);
-                    float y_TopRight = TamBi.y - R * sin(45 * 3.14159265f / 180.f);
-
-                    // Tính khoảng cách từ chuột tới chữ X
-                    float KCach = sqrt(pow(mousePos.x - x_TopRight, 2) + pow(mousePos.y - y_TopRight, 2));
-
-                    // Nếu click trúng (phạm vi 25px) -> BẮN BỎ!
-                    if (KCach <= 25.f)
-                    {
-                        DSachVienBi.erase(DSachVienBi.begin() + i);
-                        VienBi123.erase(VienBi123.begin() + i); // Nhớ xóa luôn mã màu
-
-                        // --- CĂN GIỮA LẠI DÃY BI ---
-                        int N = DSachVienBi.size();
-                        if (N > 0)
-                        {
-                            float X_Center = x_Screen / 2.f;
-                            float Y_BanDau = 830.f;
-                            float X_KCach = 160.f;
-                            float Max_Width = x_Screen - 150.f;
-                            float DSVB_Width = ((N - 1) * X_KCach) + (70.f * 2);
-                            float Scale = 1.0f;
-
-                            if (DSVB_Width > Max_Width)
-                            {
-                                Scale = Max_Width / DSVB_Width;
-                                X_KCach *= Scale;
-                            }
-
-                            float X_BanDau = X_Center - ((N - 1) * X_KCach) / 2.0f;
-                            for (int j = 0; j < N; j++)
-                            {
-                                DSachVienBi[j].setPosition({X_BanDau + j * X_KCach, Y_BanDau});
-                                DSachVienBi[j].setScale({Scale, Scale});
-                            }
-                        }
-
-                        return true; // Trả về true nếu đã xóa bi
-                    }
-                }
-            }
-        }
-    }
-    return false;
 }
 
 void SapXepVienBi(vector<int> VienBi123, vector<pair<int, int>> &ViTriSwap)
@@ -1013,7 +892,6 @@ void SapXepVienBi(vector<int> VienBi123, vector<pair<int, int>> &ViTriSwap)
     if (VienBi123.size() <= 1)
         return;
 
-    // Thuật toán Cờ Hà Lan chạy thẳng trên mảng logic
     int low = 0, mid = 0, high = VienBi123.size() - 1;
 
     while (mid <= high)
@@ -1047,9 +925,8 @@ void SapXepVienBi(vector<int> VienBi123, vector<pair<int, int>> &ViTriSwap)
 void AnimationGapKhuc(int &cheDoAnimation, int &indexHanhDong, float &timeAccumulated,
                       vector<CircleShape> &DSachVienBi, vector<int> &VienBi123, vector<pair<int, int>> &ViTriSwap,
                       int &vt1, int &vt2, Vector2f &posStart1, Vector2f &posStart2,
-                      float speed, float deltaTime)
+                      float speed, float deltaTime, sf::Music &nhacNen)
 {
-    // Đã thêm số 6 vào điều kiện dừng
     if (cheDoAnimation == 0 || cheDoAnimation == 4 || cheDoAnimation == 6 || indexHanhDong >= ViTriSwap.size() || indexHanhDong < 0)
         return;
 
@@ -1118,20 +995,19 @@ void AnimationGapKhuc(int &cheDoAnimation, int &indexHanhDong, float &timeAccumu
 
         timeAccumulated = 0.f;
 
-        // --- BỘ NÃO QUẢN LÝ TRẠNG THÁI MỚI ---
         if (cheDoAnimation == 3)
         {
-            cheDoAnimation = 0; // Lùi 1 bước xong -> Đứng im (KHÔNG hiện text)
+            cheDoAnimation = 0;
         }
         else if (cheDoAnimation == 2)
         {
             indexHanhDong++;
-            cheDoAnimation = 0; // Tiến 1 bước xong -> Đứng im (KHÔNG hiện text)
+            cheDoAnimation = 0;
         }
         else if (cheDoAnimation == 5)
         {
             indexHanhDong++;
-            cheDoAnimation = 6; // Đang chạy mà bấm Tạm dừng -> Hoàn thành bước này rồi chuyển sang 6 (HIỆN text Pause1)
+            cheDoAnimation = 6;
         }
         else if (cheDoAnimation == 1)
         {
@@ -1139,7 +1015,146 @@ void AnimationGapKhuc(int &cheDoAnimation, int &indexHanhDong, float &timeAccumu
             if (indexHanhDong >= ViTriSwap.size())
             {
                 cheDoAnimation = 4;
+                nhacNen.stop();
             }
+        }
+    }
+}
+
+// ------------------- HÀM CHỌN MÀU (SỬA ĐÚNG LOGIC ĐỔI MÀU MẪU) -------------------
+void ChonMau(RenderWindow &window, vector<CircleShape> &vienbi1, vector<CircleShape> &vienbi2,
+             vector<CircleShape> &DSachVienBi, int &indexMau, Color &mauChon, vector<int> &VienBi123,
+             bool &hienThongBaoTrungMau, Clock &dongHoTrungMau, int &selectedDSIndex)
+{
+    if (mauChon.a == 0)
+        return;
+
+    // ----- TRƯỜNG HỢP 1: CÓ MỘT VIÊN TRONG DANH SÁCH ĐƯỢC CHỌN -----
+    if (selectedDSIndex != -1 && selectedDSIndex < (int)DSachVienBi.size())
+    {
+        Color mauCu = DSachVienBi[selectedDSIndex].getFillColor();
+        if (mauCu == mauChon)
+            return; // không đổi
+
+        // 1. Đổi tất cả các viên có màu cũ sang màu mới
+        for (int i = 0; i < (int)DSachVienBi.size(); i++)
+            if (DSachVienBi[i].getFillColor() == mauCu)
+                DSachVienBi[i].setFillColor(mauChon);
+
+        // 2. Lấy danh sách các màu duy nhất hiện có trong DSachVienBi (không tính trắng)
+        vector<Color> cacMau;
+        for (int i = 0; i < (int)DSachVienBi.size(); i++)
+        {
+            Color c = DSachVienBi[i].getFillColor();
+            if (c == Color::White)
+                continue;
+            bool tonTai = false;
+            for (auto &m : cacMau)
+                if (m == c)
+                {
+                    tonTai = true;
+                    break;
+                }
+            if (!tonTai)
+                cacMau.push_back(c);
+        }
+        // Đảm bảo có tối đa 3 màu
+        while (cacMau.size() < 3)
+            cacMau.push_back(Color::White);
+        if (cacMau.size() > 3)
+            cacMau.resize(3);
+
+        // 3. Cập nhật 3 viên mẫu bên trái và bên phải theo các màu đó
+        for (int i = 0; i < 3; i++)
+        {
+            vienbi1[i].setFillColor(cacMau[i]);
+            vienbi2[i].setFillColor(cacMau[i]);
+        }
+
+        // 4. Cập nhật indexMau = số lượng màu không phải trắng
+        indexMau = 0;
+        for (int i = 0; i < 3; i++)
+            if (cacMau[i] != Color::White)
+                indexMau++;
+
+        // 5. Đồng bộ lại VienBi123 dựa trên các viên mẫu mới
+        dongboVienBi(vienbi1, vienbi2, DSachVienBi, VienBi123);
+
+        // 6. Bỏ chọn viên đã chọn
+        DSachVienBi[selectedDSIndex].setOutlineThickness(0.f);
+        selectedDSIndex = -1;
+        return;
+    }
+
+    // ----- TRƯỜNG HỢP 2: KHÔNG CÓ VIÊN NÀO TRONG DANH SÁCH ĐƯỢC CHỌN -----
+    // Kiểm tra xem màu mới chọn trên bảng màu đã tồn tại ở viên mẫu nào chưa để tránh trùng
+    // ----- TRƯỜNG HỢP 2: KHÔNG CÓ VIÊN NÀO TRONG DANH SÁCH ĐƯỢC CHỌN -----
+    // Kiểm tra xem màu mới chọn trên bảng màu đã tồn tại ở viên mẫu nào chưa để tránh trùng
+    bool daCo = false;
+    for (int i = 0; i < 3; i++)
+        if (vienbi1[i].getFillColor() == mauChon)
+        {
+            daCo = true;
+            break;
+        }
+    if (daCo)
+    {
+        hienThongBaoTrungMau = true;
+        dongHoTrungMau.restart();
+        return;
+    }
+
+    // Tìm xem viên mẫu bên trái (vienbi1) nào đang được click chọn (có outline dày -10)
+    int viTriMauChon = -1;
+    for (int i = 0; i < 3; i++)
+        if (vienbi1[i].getOutlineThickness() == -10.f)
+        {
+            viTriMauChon = i;
+            break;
+        }
+
+    if (viTriMauChon != -1)
+    {
+        // BƯỚC 1: Lưu lại màu sắc cũ của viên mẫu bên trái trước khi gán màu mới
+        Color mauCuCuaVienMau = vienbi1[viTriMauChon].getFillColor();
+
+        // BƯỚC 2: Cập nhật màu mới cho viên mẫu tĩnh (bên trái)
+        vienbi1[viTriMauChon].setFillColor(mauChon);
+
+        // BƯỚC 3: SỬA LỖI TẠI ĐÂY!
+        // Tìm và cập nhật màu mới cho viên mẫu động (bên phải) DỰA TRÊN MÀU CŨ.
+        // Vì vienbi2 có thể đã bị kéo thả đổi vị trí, ta không thể dùng chung index viTriMauChon được nữa.
+        for (int i = 0; i < 3; i++)
+        {
+            if (vienbi2[i].getFillColor() == mauCuCuaVienMau)
+            {
+                vienbi2[i].setFillColor(mauChon);
+                break;
+            }
+        }
+
+        // BƯỚC 4: Duyệt qua DSachVienBi, hễ viên nào mang màu cũ thì đổi sạch sang màu mới
+        for (int i = 0; i < (int)DSachVienBi.size(); i++)
+        {
+            if (DSachVienBi[i].getFillColor() == mauCuCuaVienMau)
+            {
+                DSachVienBi[i].setFillColor(mauChon);
+            }
+        }
+
+        // Đồng bộ lại mảng VienBi123 ngay lập tức để bảo toàn logic thứ tự cho thuật toán DNF sắp xếp
+        dongboVienBi(vienbi2, vienbi1, DSachVienBi, VienBi123);
+
+        // Reset lại viền chọn
+        vienbi1[viTriMauChon].setOutlineThickness(0.f);
+    }
+    else
+    {
+        // Chưa có viên mẫu nào được chọn: thêm màu mới khởi tạo vào vị trí indexMau (nếu còn trống)
+        if (indexMau < 3)
+        {
+            doimau(vienbi1, vienbi2, mauChon, indexMau);
+            indexMau++;
         }
     }
 }

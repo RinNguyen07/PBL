@@ -16,6 +16,7 @@
         "D:\\Libraries-VSCODE\\SFML-3.0.2\\lib",
         "-lsfml-graphics",
         "-lsfml-window",
+        "-lsfml-audio",
         "-lsfml-system"
       ],
       "options": {

@@ -4,7 +4,7 @@ CPP_PATH = -I"D:\Libraries-VSCODE\SFML-3.0.2\include"
 LIB_PATH = -L"D:\Libraries-VSCODE\SFML-3.0.2\lib"
 
 # Các thư viện liên kết (Phải có sfml-main và mwindows để fix WinMain)
-LIBS = -lsfml-graphics -lsfml-window -lsfml-system -lopengl32 -lsfml-main -mwindows
+LIBS = -lsfml-graphics -lsfml-window -lsfml-audio -lsfml-system -lopengl32 -lsfml-main -mwindows
 
 all: compile link
 
