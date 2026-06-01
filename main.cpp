@@ -80,7 +80,7 @@ void XuLiHover(vector<CircleShape> &VienBi, Vector2f mousePos);
 void XuLyHoverButton(HCN_Bo_Goc &button, Vector2f mousePos);
 
 void XuLyKeoTha(const optional<Event> &event, const RenderWindow &window, vector<CircleShape> &VienBi1,
-                vector<int> &VienBi123, bool &KTra, int &VienBiDangChon, int &VienBiDangChon2, Vector2f &offset, Vector2f &VTriBanDau, bool &ktraClick, int d);
+                vector<int> &VienBi123, bool &KTra, int &VienBiDangChon, int &VienBiDangChon2, Vector2f &offset, Vector2f &VTriBanDau, bool &ktraClick, int d, int &cheDoAnimation, vector<pair<int, int>> &ViTriSwap);
 
 void XuLyClick(const optional<Event> &event, const RenderWindow &window, vector<CircleShape> &VienBi, bool &ktraClick);
 
@@ -292,9 +292,11 @@ int main()
             if (event->is<Event::Closed>())
                 window.close();
 
-            XuLyKeoTha(event, window, vienbi2, VienBi123, isDragging, indexBiDangKeo, VienBiDangChon2, offset, viTriBanDauKhiKeo, ktraAdd, 1);
-            if (ktraAdd == true)
+            XuLyKeoTha(event, window, vienbi2, VienBi123, isDragging, indexBiDangKeo, VienBiDangChon2, offset, viTriBanDauKhiKeo, ktraAdd, 1, cheDoAnimation, ViTriSwap);
+            if (ktraAdd == true && cheDoAnimation != 1)
             {
+                ViTriSwap.clear();
+                cheDoAnimation = 0;
                 ThemBi(event, window, vienbi2, DSachVienBi, VienBi123, hienThongBao, dongHoThongBao);
                 ktraAdd = false;
             }
@@ -479,8 +481,6 @@ int main()
 
     return 0;
 }
-
-// ------------------- CÁC HÀM (giữ nguyên, CHỈ SỬA ChonMau) -------------------
 
 void taotext(Font &VNfont, Text &text_ResetAll, Text &text_ClearBi, Text &text_Start,
              Text &text_Exit, Text &text_Back, Text &text_Next, Text &text_Pause, Text &text_Continue, Text &text1, Text &text2)
@@ -690,7 +690,7 @@ void XuLyHoverButton(HCN_Bo_Goc &button, Vector2f mousePos)
 }
 
 void XuLyKeoTha(const optional<Event> &event, const RenderWindow &window, vector<CircleShape> &VienBi1,
-                vector<int> &VienBi123, bool &KTra, int &VienBiDangChon, int &VienBiDangChon2, Vector2f &offset, Vector2f &VTriBanDau, bool &ktraClick, int d)
+                vector<int> &VienBi123, bool &KTra, int &VienBiDangChon, int &VienBiDangChon2, Vector2f &offset, Vector2f &VTriBanDau, bool &ktraClick, int d, int &cheDoAnimation, vector<pair<int, int>> &ViTriSwap)
 {
     if (const auto *mouseButtonPressed = event->getIf<Event::MouseButtonPressed>())
     {
@@ -743,6 +743,8 @@ void XuLyKeoTha(const optional<Event> &event, const RenderWindow &window, vector
                         {
                             swap(VienBi123[VienBiDangChon], VienBi123[i]);
                         }
+                        cheDoAnimation = 0;
+                        ViTriSwap.clear();
 
                         KTra = true;
                         KTraSwap = true;
@@ -1021,7 +1023,6 @@ void AnimationGapKhuc(int &cheDoAnimation, int &indexHanhDong, float &timeAccumu
     }
 }
 
-// ------------------- HÀM CHỌN MÀU (SỬA ĐÚNG LOGIC ĐỔI MÀU MẪU) -------------------
 void ChonMau(RenderWindow &window, vector<CircleShape> &vienbi1, vector<CircleShape> &vienbi2,
              vector<CircleShape> &DSachVienBi, int &indexMau, Color &mauChon, vector<int> &VienBi123,
              bool &hienThongBaoTrungMau, Clock &dongHoTrungMau, int &selectedDSIndex)
